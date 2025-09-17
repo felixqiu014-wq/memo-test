@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memo Tool</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部搜索栏 -->
+        <div class="header">
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="搜索备忘录..." 
+                    class="search-input"
+                >
+                <button id="newMemoBtn" class="new-btn" title="新建备忘录">+</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- 左侧备忘录列表 -->
+            <div class="memo-list">
+                <div id="memoList" class="memo-items">
+                    <!-- 备忘录列表将通过JavaScript动态生成 -->
+                </div>
+            </div>
+
+            <!-- 右侧编辑区域 -->
+            <div class="editor-container">
+                <div class="editor-header">
+                    <input 
+                        type="text" 
+                        id="memoTitle" 
+                        placeholder="备忘录标题" 
+                        class="title-input"
+                    >
+                    <div class="editor-actions">
+                        <button id="copyBtn" class="action-btn" title="复制内容">📋</button>
+                        <button id="deleteBtn" class="action-btn delete" title="删除备忘录">🗑️</button>
+                    </div>
+                </div>
+                
+                <textarea 
+                    id="memoContent" 
+                    placeholder="开始输入内容..." 
+                    class="content-textarea"
+                ></textarea>
+                
+                <div class="editor-footer">
+                    <span id="charCount">0 字符</span>
+                    <span id="lastSaved"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
