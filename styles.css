@@ -28,13 +28,11 @@ body {
 }
 
 .search-container {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+    width: 100%;
 }
 
 .search-input {
-    flex: 1;
+    width: 100%;
     padding: 8px 12px;
     border: 1px solid #ddd;
     border-radius: 6px;
@@ -48,20 +46,6 @@ body {
     box-shadow: 0 0 0 2px rgba(0,122,255,0.1);
 }
 
-.new-btn {
-    padding: 8px 12px;
-    background: #007aff;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.new-btn:hover {
-    background: #0056cc;
-}
 
 /* 主内容区域 */
 .main-content {
@@ -75,11 +59,99 @@ body {
     width: 250px;
     background: #fff;
     border-right: 1px solid #e0e0e0;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 列表头部 */
+.memo-list-header {
+    padding: 12px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f9f9f9;
+}
+
+/* 列表底部 */
+.memo-list-footer {
+    padding: 8px 12px;
+    border-top: 1px solid #e0e0e0;
+    background: #f9f9f9;
+}
+
+/* 新建备忘录按钮 */
+.new-memo-btn {
+    width: 100%;
+    padding: 12px;
+    background: #007aff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,122,255,0.2);
+}
+
+.new-memo-btn:hover {
+    background: #0056cc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,122,255,0.3);
+}
+
+.new-memo-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,122,255,0.2);
+}
+
+.batch-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.select-all-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #666;
+}
+
+.select-all-container input[type="checkbox"] {
+    margin: 0;
+}
+
+.batch-delete-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.batch-delete-btn:hover:not(:disabled) {
+    background: #cc0000;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(255,68,68,0.3);
+}
+
+.batch-delete-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .memo-items {
     padding: 8px 0;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .memo-item {
@@ -88,6 +160,19 @@ body {
     border-bottom: 1px solid #f0f0f0;
     transition: background-color 0.2s;
     position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.memo-item-checkbox {
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.memo-item-content {
+    flex: 1;
+    min-width: 0;
 }
 
 .memo-item:hover {
@@ -158,28 +243,62 @@ body {
 }
 
 .action-btn {
-    padding: 6px;
-    border: none;
-    background: none;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: #fff;
     cursor: pointer;
-    border-radius: 4px;
-    font-size: 16px;
-    transition: background-color 0.2s;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s;
+    font-weight: 500;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .action-btn:hover {
-    background: #f0f0f0;
+    background: #f8f9fa;
+    border-color: #007aff;
+    color: #007aff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.action-btn.delete {
+    color: #dc3545;
+    border-color: #dc3545;
 }
 
 .action-btn.delete:hover {
-    background: #ffebee;
-    color: #d32f2f;
+    background: #fff5f5;
+    border-color: #dc3545;
+    color: #dc3545;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(220,53,69,0.2);
 }
 
 /* 内容编辑区 */
-.content-textarea {
+.content-editor {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: #e0e0e0;
+}
+
+.editor-section {
+    flex: 1;
+    position: relative;
+    background: #fff;
+}
+
+.section-textarea {
+    width: 100%;
+    height: 100%;
     padding: 16px;
+    padding-bottom: 40px;
     border: none;
     outline: none;
     resize: none;
@@ -189,8 +308,19 @@ body {
     background: #fff;
 }
 
-.content-textarea::placeholder {
+.section-textarea::placeholder {
     color: #999;
+}
+
+.section-label {
+    position: absolute;
+    bottom: 12px;
+    right: 16px;
+    color: #999;
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    user-select: none;
 }
 
 /* 编辑器底部 */

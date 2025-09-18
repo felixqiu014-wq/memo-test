@@ -1,42 +1,16 @@
 {
   "name": "memo-tool",
   "version": "1.0.0",
-  "description": "极简桌面备忘录工具，支持全局快捷键一键呼出",
-  "main": "main.js",
+  "description": "极简备忘录Web应用",
+  "main": "server.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
-    "build": "electron-builder",
-    "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
-  "keywords": ["memo", "note", "desktop", "electron", "productivity"],
+  "keywords": ["memo", "note", "web", "express", "productivity"],
   "author": "Memo Tool Team",
   "license": "MIT",
-  "devDependencies": {
-    "electron": "^27.0.0",
-    "electron-builder": "^24.6.4"
-  },
   "dependencies": {
-    "electron-store": "^8.1.0"
-  },
-  "build": {
-    "appId": "com.memotool.app",
-    "productName": "Memo Tool",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "**/*",
-      "!node_modules/**/*"
-    ],
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": "dmg"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
-    }
+    "express": "^4.18.2"
   }
 }

@@ -11,21 +11,32 @@
         <!-- 顶部搜索栏 -->
         <div class="header">
             <div class="search-container">
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    placeholder="搜索备忘录..." 
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="搜索备忘录..."
                     class="search-input"
                 >
-                <button id="newMemoBtn" class="new-btn" title="新建备忘录">+</button>
             </div>
         </div>
 
         <div class="main-content">
             <!-- 左侧备忘录列表 -->
             <div class="memo-list">
+                <div class="memo-list-header">
+                    <button id="newMemoBtn" class="new-memo-btn">+ 新建备忘录</button>
+                </div>
                 <div id="memoList" class="memo-items">
                     <!-- 备忘录列表将通过JavaScript动态生成 -->
+                </div>
+                <div class="memo-list-footer">
+                    <div class="batch-controls">
+                        <label class="select-all-container">
+                            <input type="checkbox" id="selectAllCheckbox">
+                            <span>全选</span>
+                        </label>
+                        <button id="batchDeleteBtn" class="batch-delete-btn" disabled>删除选中</button>
+                    </div>
                 </div>
             </div>
 
@@ -39,16 +50,35 @@
                         class="title-input"
                     >
                     <div class="editor-actions">
-                        <button id="copyBtn" class="action-btn" title="复制内容">📋</button>
-                        <button id="deleteBtn" class="action-btn delete" title="删除备忘录">🗑️</button>
+                        <button id="copyBtn" class="action-btn" title="复制内容">
+                            <span>📋</span>
+                            <span>复制</span>
+                        </button>
+                        <button id="deleteBtn" class="action-btn delete" title="删除备忘录">
+                            <span>🗑️</span>
+                            <span>删除</span>
+                        </button>
                     </div>
                 </div>
                 
-                <textarea 
-                    id="memoContent" 
-                    placeholder="开始输入内容..." 
-                    class="content-textarea"
-                ></textarea>
+                <div class="content-editor">
+                    <div class="editor-section problem-section">
+                        <textarea
+                            id="problemContent"
+                            placeholder="描述问题..."
+                            class="section-textarea"
+                        ></textarea>
+                        <div class="section-label">Problem</div>
+                    </div>
+                    <div class="editor-section solution-section">
+                        <textarea
+                            id="solutionContent"
+                            placeholder="解决方案..."
+                            class="section-textarea"
+                        ></textarea>
+                        <div class="section-label">Solution</div>
+                    </div>
+                </div>
                 
                 <div class="editor-footer">
                     <span id="charCount">0 字符</span>
