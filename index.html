@@ -50,9 +50,9 @@
                         class="title-input"
                     >
                     <div class="editor-actions">
-                        <button id="copyBtn" class="action-btn" title="复制内容">
+                        <button id="copyBtn" class="action-btn" title="复制全部内容">
                             <span>📋</span>
-                            <span>复制</span>
+                            <span>全部复制</span>
                         </button>
                         <button id="deleteBtn" class="action-btn delete" title="删除备忘录">
                             <span>🗑️</span>
@@ -68,7 +68,12 @@
                             placeholder="描述问题..."
                             class="section-textarea"
                         ></textarea>
-                        <div class="section-label">Problem</div>
+                        <div class="section-header">
+                            <div class="section-label">Problem</div>
+                            <button id="copyProblemBtn" class="section-copy-btn" title="复制Problem内容">
+                                <span>📋</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="editor-section solution-section">
                         <textarea
@@ -76,7 +81,12 @@
                             placeholder="解决方案..."
                             class="section-textarea"
                         ></textarea>
-                        <div class="section-label">Solution</div>
+                        <div class="section-header">
+                            <div class="section-label">Solution</div>
+                            <button id="copySolutionBtn" class="section-copy-btn" title="复制Solution内容">
+                                <span>📋</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 

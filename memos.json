@@ -2,9 +2,9 @@
   {
     "id": "1758182274573",
     "title": "Brain landing page 的 QA",
-    "content": "=== PROBLEM ===\nQ：How is Sealos Brain integrated with AI?\nA：The AI Agent integrated in Sealos Brain can work as a good deployment assistant from the beginning to the end. It can help you set the basic resources, adjust the usage and debug. Just chat with Brain and then everything will be well-prepared for your deployment.\n\nQ：Does Sealos Brain have a free trial?\nA：Yes. Sealos Brain will share the free trial of Sealos. You will have a 7-day free trial containing some fixed AI credits to try all the features of Sealos Brain. Enjoy your use!",
+    "content": "=== PROBLEM ===\nQ：How is Sealos Brain integrated with AI?\nA：The AI Agent integrated in Sealos Brain can work as a good deployment assistant from the beginning to the end. It can help you set the basic resources, adjust the usage and debug. Just chat with Brain and then everything will be well-prepared for your deployment.\n\nQ：Does Sealos Brain have a free trial?\nA：Yes. Sealos Brain will share the free trial of Sealos. You will have a 7-day free trial containing some fixed AI credits to try all the features of Sealos Brain. Enjoy your use!\n\n=== SOLUTION ===\n已和依玲，艺菲同步",
     "createdAt": 1758182274573,
-    "updatedAt": 1758184009283
+    "updatedAt": 1758195487131
   },
   {
     "id": "1758173901746",
