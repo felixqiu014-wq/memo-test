@@ -21,6 +21,8 @@ class MemoApp {
         this.problemContent = document.getElementById('problemContent');
         this.solutionContent = document.getElementById('solutionContent');
         this.copyBtn = document.getElementById('copyBtn');
+        this.copyProblemBtn = document.getElementById('copyProblemBtn');
+        this.copySolutionBtn = document.getElementById('copySolutionBtn');
         this.deleteBtn = document.getElementById('deleteBtn');
         this.charCount = document.getElementById('charCount');
         this.lastSaved = document.getElementById('lastSaved');
@@ -42,6 +44,8 @@ class MemoApp {
         
         // 操作按钮
         this.copyBtn.addEventListener('click', () => this.copyContent());
+        this.copyProblemBtn.addEventListener('click', () => this.copyProblemContent());
+        this.copySolutionBtn.addEventListener('click', () => this.copySolutionContent());
         this.deleteBtn.addEventListener('click', () => this.deleteCurrentMemo());
 
         // 批量操作
@@ -254,6 +258,46 @@ class MemoApp {
         }
     }
 
+    async copyProblemContent() {
+        const problemContent = this.problemContent.value.trim();
+        if (problemContent) {
+            try {
+                await navigator.clipboard.writeText(problemContent);
+                this.showToast('Problem内容已复制到剪贴板');
+            } catch (error) {
+                console.error('复制失败:', error);
+                // 降级方案
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = problemContent;
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+                this.showToast('Problem内容已复制到剪贴板');
+            }
+        }
+    }
+
+    async copySolutionContent() {
+        const solutionContent = this.solutionContent.value.trim();
+        if (solutionContent) {
+            try {
+                await navigator.clipboard.writeText(solutionContent);
+                this.showToast('Solution内容已复制到剪贴板');
+            } catch (error) {
+                console.error('复制失败:', error);
+                // 降级方案
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = solutionContent;
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+                this.showToast('Solution内容已复制到剪贴板');
+            }
+        }
+    }
+
     handleKeyboard(event) {
         // Ctrl/Cmd + N: 新建备忘录
         if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
@@ -420,11 +464,11 @@ class MemoApp {
 
         let combined = '';
         if (problem) {
-            combined += `=== PROBLEM ===\n${problem}`;
+            combined += `Problem\n${problem}`;
         }
         if (solution) {
             if (combined) combined += '\n\n';
-            combined += `=== SOLUTION ===\n${solution}`;
+            combined += `Solution\n${solution}`;
         }
 
         return combined;
