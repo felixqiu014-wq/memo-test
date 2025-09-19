@@ -66,4 +66,4 @@ jspm_packages/
 *.tgz
 
 # Yarn Integrity file
-.yarn-integrity
+.yarn-integritymemos.json
