@@ -428,8 +428,31 @@ class MemoApp {
 
     // 解析备忘录内容，分离Problem和Solution
     parseContent(content) {
-        // 如果内容包含标记分隔符，则按标记分离
-        if (content.includes('=== PROBLEM ===') && content.includes('=== SOLUTION ===')) {
+        // 如果内容包含新的标记分隔符，则按标记分离
+        if (content.includes('Problem\n') && content.includes('Solution\n')) {
+            const problemStart = content.indexOf('Problem\n') + 8;
+            const solutionIndex = content.indexOf('\n\nSolution\n');
+            const solutionStart = solutionIndex + 11;
+
+            const problem = content.substring(problemStart, solutionIndex).trim();
+            const solution = content.substring(solutionStart).trim();
+
+            return { problem, solution };
+        }
+        // 如果只包含Problem标记
+        else if (content.includes('Problem\n')) {
+            const problemStart = content.indexOf('Problem\n') + 8;
+            const problem = content.substring(problemStart).trim();
+            return { problem, solution: '' };
+        }
+        // 如果只包含Solution标记
+        else if (content.includes('Solution\n')) {
+            const solutionStart = content.indexOf('Solution\n') + 9;
+            const solution = content.substring(solutionStart).trim();
+            return { problem: '', solution };
+        }
+        // 兼容旧格式：如果内容包含旧的标记分隔符，则按标记分离
+        else if (content.includes('=== PROBLEM ===') && content.includes('=== SOLUTION ===')) {
             const problemStart = content.indexOf('=== PROBLEM ===') + 15;
             const solutionStart = content.indexOf('=== SOLUTION ===') + 16;
 
@@ -438,13 +461,13 @@ class MemoApp {
 
             return { problem, solution };
         }
-        // 如果只包含Problem标记
+        // 如果只包含旧的Problem标记
         else if (content.includes('=== PROBLEM ===')) {
             const problemStart = content.indexOf('=== PROBLEM ===') + 15;
             const problem = content.substring(problemStart).trim();
             return { problem, solution: '' };
         }
-        // 如果只包含Solution标记
+        // 如果只包含旧的Solution标记
         else if (content.includes('=== SOLUTION ===')) {
             const solutionStart = content.indexOf('=== SOLUTION ===') + 16;
             const solution = content.substring(solutionStart).trim();
