@@ -24,7 +24,7 @@ async function createDefaultUser() {
         const result = await client.query(`
             UPDATE users
             SET password_hash = $1
-            WHERE username = 'default'
+            WHERE username = 'felix'
             RETURNING id, username, email
         `, [passwordHash]);
 

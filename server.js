@@ -136,7 +136,7 @@ app.get('/api/me', auth.authenticateToken, async (req, res) => {
 // 备忘录 API 路由
 app.get('/api/memos', auth.authenticateToken, async (req, res) => {
     try {
-        const memos = await db.getMemos(req.user.userId);
+        const memos = await db.getAccessibleMemos(req.user.userId);
         res.json(memos);
     } catch (error) {
         console.error('获取备忘录失败:', error);
@@ -148,9 +148,17 @@ app.post('/api/memos', auth.authenticateToken, async (req, res) => {
     try {
         const { id, title, content } = req.body;
 
+        if (id) {
+            // 检查用户是否有权限更新这个备忘录
+            const canAccess = await db.canAccessMemo(req.user.userId, id);
+            if (!canAccess) {
+                return res.status(403).json({ error: '无权限编辑此备忘录' });
+            }
+        }
+
         let savedMemo;
         if (id) {
-            // 更新现有备忘录
+            // 更新现有备忘录（包括分享的）
             savedMemo = await db.updateMemo(req.user.userId, id, title, content);
             if (!savedMemo) {
                 return res.status(404).json({ error: '备忘录不存在或无权限' });
@@ -194,6 +202,120 @@ app.delete('/api/memos', auth.authenticateToken, async (req, res) => {
         res.status(500).json({ error: '批量删除失败' });
     }
 });
+
+// 分享备忘录API
+app.post('/api/memos/:id/share', auth.authenticateToken, async (req, res) => {
+    try {
+        const { username } = req.body;
+        const memoId = req.params.id;
+
+        if (!username) {
+            return res.status(400).json({ error: '用户名不能为空' });
+        }
+
+        // 检查分享目标用户是否存在
+        const targetUser = await db.findUserByUsername(username);
+        if (!targetUser) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+
+        // 检查是否尝试分享给自己
+        if (targetUser.id === req.user.userId) {
+            return res.status(400).json({ error: '不能分享给自己' });
+        }
+
+        // 检查备忘录是否属于当前用户
+        const memo = await db.getMemos(req.user.userId);
+        const targetMemo = memo.find(m => m.id === memoId);
+        if (!targetMemo) {
+            return res.status(404).json({ error: '备忘录不存在或无权限' });
+        }
+
+        // 创建分享记录
+        const share = await db.createMemoShare(memoId, req.user.userId, targetUser.id);
+
+        // 创建通知
+        const message = `${req.user.username} 想要与您分享备忘录 "${targetMemo.title}"`;
+        await db.createNotification(targetUser.id, share.id, 'share_request', message);
+
+        res.json({ success: true, message: '分享请求已发送' });
+    } catch (error) {
+        if (error.constraint === 'memo_shares_memo_id_shared_with_key') {
+            return res.status(400).json({ error: '已经分享给该用户' });
+        }
+        console.error('分享备忘录失败:', error);
+        res.status(500).json({ error: '分享备忘录失败' });
+    }
+});
+
+// 获取分享请求
+app.get('/api/share-requests', auth.authenticateToken, async (req, res) => {
+    try {
+        const requests = await db.getShareRequests(req.user.userId);
+        res.json(requests);
+    } catch (error) {
+        console.error('获取分享请求失败:', error);
+        res.status(500).json({ error: '获取分享请求失败' });
+    }
+});
+
+// 处理分享请求（接受或拒绝）
+app.post('/api/share-requests/:id/respond', auth.authenticateToken, async (req, res) => {
+    try {
+        const { action } = req.body; // 'accept' or 'reject'
+        const shareId = req.params.id;
+
+        if (!['accept', 'reject'].includes(action)) {
+            return res.status(400).json({ error: '无效的操作' });
+        }
+
+        const status = action === 'accept' ? 'accepted' : 'rejected';
+        const share = await db.updateShareStatus(shareId, status);
+
+        if (!share) {
+            return res.status(404).json({ error: '分享请求不存在' });
+        }
+
+        res.json({ success: true, status });
+    } catch (error) {
+        console.error('处理分享请求失败:', error);
+        res.status(500).json({ error: '处理分享请求失败' });
+    }
+});
+
+// 获取用户通知
+app.get('/api/notifications', auth.authenticateToken, async (req, res) => {
+    try {
+        const notifications = await db.getUserNotifications(req.user.userId);
+        res.json(notifications);
+    } catch (error) {
+        console.error('获取通知失败:', error);
+        res.status(500).json({ error: '获取通知失败' });
+    }
+});
+
+// 标记通知为已读
+app.post('/api/notifications/:id/read', auth.authenticateToken, async (req, res) => {
+    try {
+        await db.markNotificationAsRead(req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('标记通知已读失败:', error);
+        res.status(500).json({ error: '标记通知已读失败' });
+    }
+});
+
+// 获取备忘录更新历史
+app.get('/api/memos/:id/updates', auth.authenticateToken, async (req, res) => {
+    try {
+        const updates = await db.getMemoUpdates(req.user.userId, req.params.id);
+        res.json(updates);
+    } catch (error) {
+        console.error('获取备忘录更新历史失败:', error);
+        res.status(500).json({ error: '获取备忘录更新历史失败' });
+    }
+});
+
 
 // 主页路由
 app.get('/', (req, res) => {

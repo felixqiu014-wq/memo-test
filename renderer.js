@@ -9,6 +9,7 @@ class AuthManager {
 
     initializeElements() {
         // 认证相关元素
+        this.loadingContainer = document.getElementById('loadingContainer');
         this.authContainer = document.getElementById('authContainer');
         this.appContainer = document.getElementById('appContainer');
         this.loginTab = document.getElementById('loginTab');
@@ -56,8 +57,19 @@ class AuthManager {
     }
 
     async checkAuthStatus() {
+        // 确保加载动画至少显示300ms，提供更好的视觉体验
+        const startTime = Date.now();
+        const minLoadingTime = 300;
+
         try {
             const response = await fetch('/api/me');
+
+            // 等待最小加载时间
+            const elapsedTime = Date.now() - startTime;
+            if (elapsedTime < minLoadingTime) {
+                await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+            }
+
             if (response.ok) {
                 const user = await response.json();
                 this.currentUser = user;
@@ -70,6 +82,11 @@ class AuthManager {
                 this.showAuth();
             }
         } catch (error) {
+            // 确保即使出错也等待最小加载时间
+            const elapsedTime = Date.now() - startTime;
+            if (elapsedTime < minLoadingTime) {
+                await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+            }
             this.showAuth();
         }
     }
@@ -156,12 +173,14 @@ class AuthManager {
     }
 
     showAuth() {
+        this.loadingContainer.style.display = 'none';
         this.authContainer.style.display = 'flex';
         this.appContainer.style.display = 'none';
         this.clearForms();
     }
 
     showApp() {
+        this.loadingContainer.style.display = 'none';
         this.authContainer.style.display = 'none';
         this.appContainer.style.display = 'flex';
         if (this.currentUser) {
@@ -197,6 +216,7 @@ class MemoApp {
         this.problemContent = document.getElementById('problemContent');
         this.solutionContent = document.getElementById('solutionContent');
         this.copyBtn = document.getElementById('copyBtn');
+        this.shareBtn = document.getElementById('shareBtn');
         this.copyProblemBtn = document.getElementById('copyProblemBtn');
         this.copySolutionBtn = document.getElementById('copySolutionBtn');
         this.deleteBtn = document.getElementById('deleteBtn');
@@ -204,6 +224,12 @@ class MemoApp {
         this.lastSaved = document.getElementById('lastSaved');
         this.selectAllCheckbox = document.getElementById('selectAllCheckbox');
         this.batchDeleteBtn = document.getElementById('batchDeleteBtn');
+
+        // 通知相关元素
+        this.notificationBtn = document.getElementById('notificationBtn');
+        this.notificationCount = document.getElementById('notificationCount');
+        this.notificationDropdown = document.getElementById('notificationDropdown');
+        this.notificationList = document.getElementById('notificationList');
     }
 
     bindEvents() {
@@ -220,9 +246,18 @@ class MemoApp {
 
         // 操作按钮
         this.copyBtn.addEventListener('click', () => this.copyContent());
+        this.shareBtn.addEventListener('click', () => this.showShareModal());
         this.copyProblemBtn.addEventListener('click', () => this.copyProblemContent());
         this.copySolutionBtn.addEventListener('click', () => this.copySolutionContent());
         this.deleteBtn.addEventListener('click', () => this.deleteCurrentMemo());
+
+        // 通知功能
+        this.notificationBtn.addEventListener('click', () => this.toggleNotificationDropdown());
+        document.addEventListener('click', (e) => {
+            if (!this.notificationBtn.contains(e.target) && !this.notificationDropdown.contains(e.target)) {
+                this.notificationDropdown.style.display = 'none';
+            }
+        });
 
         // 批量操作
         this.selectAllCheckbox.addEventListener('change', () => this.toggleSelectAll());
@@ -246,6 +281,9 @@ class MemoApp {
             this.memos = await response.json();
             this.filteredMemos = [...this.memos];
             this.renderMemoList();
+
+            // 尝试恢复之前选中的备忘录
+            this.restoreCurrentMemo();
         } catch (error) {
             console.error('加载备忘录失败:', error);
             this.showToast('加载备忘录失败');
@@ -264,6 +302,25 @@ class MemoApp {
         this.updateCharCount();
         if (this.memoList) {
             this.memoList.innerHTML = '';
+        }
+        // 清除localStorage
+        localStorage.removeItem('currentMemoId');
+    }
+
+    // 恢复之前选中的备忘录
+    restoreCurrentMemo() {
+        const savedMemoId = localStorage.getItem('currentMemoId');
+        if (savedMemoId && this.memos.length > 0) {
+            const memo = this.memos.find(m => m.id === savedMemoId);
+            if (memo) {
+                // 延迟选择，确保DOM已经渲染
+                setTimeout(() => {
+                    this.selectMemo(savedMemoId);
+                }, 100);
+            } else {
+                // 如果找不到之前的备忘录，清除localStorage
+                localStorage.removeItem('currentMemoId');
+            }
         }
     }
 
@@ -285,51 +342,6 @@ class MemoApp {
         this.renderMemoList();
     }
 
-    renderMemoList() {
-        if (this.filteredMemos.length === 0) {
-            this.memoList.innerHTML = `
-                <div class="empty-state">
-                    <h3>暂无备忘录</h3>
-                    <p>点击 + 按钮创建新的备忘录</p>
-                </div>
-            `;
-            return;
-        }
-
-        this.memoList.innerHTML = this.filteredMemos.map(memo => `
-            <div class="memo-item ${this.currentMemo?.id === memo.id ? 'active' : ''}"
-                 data-id="${memo.id}">
-                <input type="checkbox" class="memo-item-checkbox" data-memo-id="${memo.id}"
-                       ${this.selectedMemos.has(memo.id) ? 'checked' : ''}>
-                <div class="memo-item-content">
-                    <div class="memo-item-title">${this.escapeHtml(memo.title || '无标题')}</div>
-                    <div class="memo-item-preview">${this.escapeHtml(this.getPreviewText(memo.content))}</div>
-                    <div class="memo-item-time">${this.formatTime(memo.updatedAt)}</div>
-                </div>
-            </div>
-        `).join('');
-
-        // 绑定点击事件
-        this.memoList.querySelectorAll('.memo-item').forEach(item => {
-            const checkbox = item.querySelector('.memo-item-checkbox');
-            const content = item.querySelector('.memo-item-content');
-
-            // 点击内容区域选择备忘录
-            content.addEventListener('click', () => {
-                const memoId = item.getAttribute('data-id');
-                this.selectMemo(memoId);
-            });
-
-            // 复选框选择
-            checkbox.addEventListener('change', (e) => {
-                e.stopPropagation();
-                const memoId = checkbox.getAttribute('data-memo-id');
-                this.toggleMemoSelection(memoId);
-            });
-        });
-
-        this.updateBatchControls();
-    }
 
     selectMemo(memoId) {
         const memo = this.memos.find(m => m.id === memoId);
@@ -347,6 +359,9 @@ class MemoApp {
             this.updateCharCount();
             this.renderMemoList();
             this.problemContent.focus();
+
+            // 保存当前备忘录ID到localStorage
+            localStorage.setItem('currentMemoId', memoId);
         }
     }
 
@@ -359,6 +374,9 @@ class MemoApp {
         this.updateCharCount();
         this.problemContent.focus();
         this.renderMemoList();
+
+        // 清除localStorage中的当前备忘录ID
+        localStorage.removeItem('currentMemoId');
     }
 
     handleInput() {
@@ -406,6 +424,8 @@ class MemoApp {
                 this.currentMemo = savedMemo;
                 this.memos.unshift(savedMemo);
                 this.filteredMemos = [...this.memos];
+                // 保存新创建的备忘录ID到localStorage
+                localStorage.setItem('currentMemoId', savedMemo.id);
             } else {
                 Object.assign(this.currentMemo, savedMemo);
                 // 更新数组中对应的项目
@@ -420,6 +440,12 @@ class MemoApp {
             }
 
             this.lastSaved.textContent = `最后更新: ${this.formatTime(savedMemo.updatedAt)}`;
+
+            // 如果是被分享者保存，显示特殊提示
+            if (savedMemo.accessType === 'shared') {
+                this.showToast('已保存到共享备忘录，分享者将收到更新通知');
+            }
+
             this.renderMemoList();
 
         } catch (error) {
@@ -444,6 +470,8 @@ class MemoApp {
 
                 this.memos = this.memos.filter(m => m.id !== this.currentMemo.id);
                 this.filteredMemos = this.filteredMemos.filter(m => m.id !== this.currentMemo.id);
+                // 清除localStorage中的当前备忘录ID
+                localStorage.removeItem('currentMemoId');
                 this.createNewMemo();
                 this.renderMemoList();
             } catch (error) {
@@ -771,6 +799,7 @@ class MemoApp {
 
                     // 如果当前选中的备忘录被删除了，创建新的
                     if (this.currentMemo && selectedIds.includes(this.currentMemo.id)) {
+                        localStorage.removeItem('currentMemoId');
                         this.createNewMemo();
                     }
 
@@ -786,10 +815,263 @@ class MemoApp {
             }
         }
     }
+
+    // 显示分享模态框
+    showShareModal() {
+        if (!this.currentMemo) {
+            this.showToast('请先选择要分享的备忘录');
+            return;
+        }
+        document.getElementById('shareModal').style.display = 'flex';
+        document.getElementById('shareUsername').value = '';
+        document.getElementById('shareError').textContent = '';
+    }
+
+    // 切换通知下拉菜单
+    async toggleNotificationDropdown() {
+        if (this.notificationDropdown.style.display === 'none' || !this.notificationDropdown.style.display) {
+            await this.loadNotifications();
+            this.notificationDropdown.style.display = 'block';
+        } else {
+            this.notificationDropdown.style.display = 'none';
+        }
+    }
+
+    // 加载通知
+    async loadNotifications() {
+        try {
+            const response = await fetch('/api/notifications');
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+
+            const notifications = await response.json();
+            this.renderNotifications(notifications);
+            this.updateNotificationCount(notifications.length);
+        } catch (error) {
+            console.error('加载通知失败:', error);
+        }
+    }
+
+    // 渲染通知列表
+    renderNotifications(notifications) {
+        if (notifications.length === 0) {
+            this.notificationList.innerHTML = '<div class="notification-item">暂无通知</div>';
+            return;
+        }
+
+        this.notificationList.innerHTML = notifications.map(notification => `
+            <div class="notification-item" data-id="${notification.id}">
+                <div class="notification-message">${notification.message}</div>
+                <div class="notification-time">${this.formatTime(notification.created_at)}</div>
+                <div class="notification-actions">
+                    <button class="btn-accept" onclick="window.memoApp.respondToShareRequest(${notification.share_id}, 'accept', ${notification.id})">接受</button>
+                    <button class="btn-reject" onclick="window.memoApp.respondToShareRequest(${notification.share_id}, 'reject', ${notification.id})">拒绝</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 更新通知计数
+    updateNotificationCount(count) {
+        if (count > 0) {
+            this.notificationCount.textContent = count;
+            this.notificationCount.style.display = 'flex';
+        } else {
+            this.notificationCount.style.display = 'none';
+        }
+    }
+
+    // 响应分享请求
+    async respondToShareRequest(shareId, action, notificationId) {
+        try {
+            const response = await fetch(`/api/share-requests/${shareId}/respond`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action })
+            });
+
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+
+            if (response.ok) {
+                // 标记通知为已读
+                await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' });
+
+                // 重新加载通知和备忘录列表
+                await this.loadNotifications();
+                await this.loadMemos();
+
+                this.showToast(action === 'accept' ? '已接受分享' : '已拒绝分享');
+            } else {
+                const error = await response.json();
+                this.showToast(error.error || '操作失败');
+            }
+        } catch (error) {
+            console.error('响应分享请求失败:', error);
+            this.showToast('操作失败');
+        }
+    }
+
+    // 修改renderMemoList方法，添加分享标识
+    renderMemoList() {
+        if (this.filteredMemos.length === 0) {
+            this.memoList.innerHTML = '<div class="no-memos">暂无备忘录</div>';
+            return;
+        }
+
+        this.memoList.innerHTML = this.filteredMemos.map(memo => {
+            const isSelected = this.selectedMemos.has(memo.id);
+            const isActive = this.currentMemo && this.currentMemo.id === memo.id;
+            const previewText = this.getPreviewText(memo.content) || '空白备忘录';
+            const isShared = memo.accessType === 'shared';
+
+            return `
+                <div class="memo-item ${isActive ? 'active' : ''} ${isShared ? 'shared' : ''}" data-id="${memo.id}">
+                    <div class="memo-checkbox">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="window.memoApp.toggleMemoSelection('${memo.id}')">
+                    </div>
+                    <div class="memo-content" onclick="window.memoApp.selectMemo('${memo.id}')">
+                        <div class="memo-title">
+                            ${this.escapeHtml(memo.title) || '未命名备忘录'}
+                            ${isShared ? '<span class="memo-shared-badge">共享</span>' : ''}
+                        </div>
+                        <div class="memo-preview">${this.escapeHtml(previewText)}</div>
+                        <div class="memo-time">${this.formatTime(memo.updatedAt)}</div>
+                        ${isShared ? `<div class="memo-owner">来自: ${memo.ownerUsername}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        this.updateBatchControls();
+    }
+
+    // 初始化时加载通知
+    async init() {
+        await this.loadMemos();
+        await this.loadNotifications();
+
+        // 定期检查通知和备忘录更新
+        setInterval(() => {
+            this.loadNotifications();
+            this.checkForMemoUpdates();
+        }, 30000); // 每30秒检查一次
+    }
+
+    // 检查备忘录更新
+    async checkForMemoUpdates() {
+        try {
+            // 只检查当前用户拥有的被分享的备忘录
+            const ownedSharedMemos = this.memos.filter(memo => memo.accessType === 'owner' && memo.sharedWith);
+
+            for (const memo of ownedSharedMemos) {
+                const updates = await this.getMemoUpdates(memo.id);
+                if (updates.length > 0) {
+                    // 如果有更新，刷新备忘录列表
+                    await this.loadMemos();
+
+                    // 如果当前正在查看这个备忘录，也需要刷新
+                    if (this.currentMemo && this.currentMemo.id === memo.id) {
+                        this.selectMemo(memo.id);
+                    }
+
+                    // 显示通知
+                    const latestUpdate = updates[0];
+                    this.showToast(`${latestUpdate.updatedByUsername} 更新了共享备忘录 "${memo.title}"`);
+                    break; // 只显示一个通知，避免过多弹窗
+                }
+            }
+        } catch (error) {
+            console.error('检查备忘录更新失败:', error);
+        }
+    }
+
+    // 获取备忘录更新历史
+    async getMemoUpdates(memoId) {
+        try {
+            const response = await fetch(`/api/memos/${memoId}/updates`);
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return [];
+            }
+
+            if (response.ok) {
+                return await response.json();
+            }
+            return [];
+        } catch (error) {
+            console.error('获取备忘录更新历史失败:', error);
+            return [];
+        }
+    }
+}
+
+// 全局函数用于模态框操作
+function closeShareModal() {
+    document.getElementById('shareModal').style.display = 'none';
+}
+
+function closeShareRequestModal() {
+    document.getElementById('shareRequestModal').style.display = 'none';
+}
+
+async function shareMemo() {
+    const username = document.getElementById('shareUsername').value.trim();
+    const errorElement = document.getElementById('shareError');
+
+    if (!username) {
+        errorElement.textContent = '请输入用户名';
+        return;
+    }
+
+    if (!window.memoApp.currentMemo) {
+        errorElement.textContent = '请先选择要分享的备忘录';
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/memos/${window.memoApp.currentMemo.id}/share`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username })
+        });
+
+        if (response.status === 401) {
+            window.authManager.showAuth();
+            return;
+        }
+
+        const result = await response.json();
+
+        if (response.ok) {
+            window.memoApp.showToast(result.message || '分享请求已发送');
+            closeShareModal();
+        } else {
+            errorElement.textContent = result.error || '分享失败';
+        }
+    } catch (error) {
+        console.error('分享备忘录失败:', error);
+        errorElement.textContent = '分享失败，请稍后重试';
+    }
 }
 
 // 应用初始化
 document.addEventListener('DOMContentLoaded', () => {
     window.authManager = new AuthManager();
     window.memoApp = new MemoApp();
+
+    // 确保用户已登录后再初始化分享功能
+    const originalShowApp = window.authManager.showApp;
+    window.authManager.showApp = function() {
+        originalShowApp.call(this);
+        window.memoApp.init();
+    };
 });
