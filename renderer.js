@@ -1,4 +1,182 @@
+// 认证管理类
+class AuthManager {
+    constructor() {
+        this.currentUser = null;
+        this.initializeElements();
+        this.bindEvents();
+        this.checkAuthStatus();
+    }
 
+    initializeElements() {
+        // 认证相关元素
+        this.authContainer = document.getElementById('authContainer');
+        this.appContainer = document.getElementById('appContainer');
+        this.loginTab = document.getElementById('loginTab');
+        this.registerTab = document.getElementById('registerTab');
+        this.loginForm = document.getElementById('loginForm');
+        this.registerForm = document.getElementById('registerForm');
+        this.loginError = document.getElementById('loginError');
+        this.registerError = document.getElementById('registerError');
+        this.userWelcome = document.getElementById('userWelcome');
+        this.logoutBtn = document.getElementById('logoutBtn');
+    }
+
+    bindEvents() {
+        // Tab切换
+        this.loginTab.addEventListener('click', () => this.switchTab('login'));
+        this.registerTab.addEventListener('click', () => this.switchTab('register'));
+
+        // 表单提交
+        this.loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+        this.registerForm.addEventListener('submit', (e) => this.handleRegister(e));
+
+        // 登出
+        this.logoutBtn.addEventListener('click', () => this.handleLogout());
+    }
+
+    switchTab(type) {
+        if (type === 'login') {
+            this.loginTab.classList.add('active');
+            this.registerTab.classList.remove('active');
+            this.loginForm.style.display = 'block';
+            this.registerForm.style.display = 'none';
+            this.clearErrors();
+        } else {
+            this.registerTab.classList.add('active');
+            this.loginTab.classList.remove('active');
+            this.registerForm.style.display = 'block';
+            this.loginForm.style.display = 'none';
+            this.clearErrors();
+        }
+    }
+
+    clearErrors() {
+        this.loginError.textContent = '';
+        this.registerError.textContent = '';
+    }
+
+    async checkAuthStatus() {
+        try {
+            const response = await fetch('/api/me');
+            if (response.ok) {
+                const user = await response.json();
+                this.currentUser = user;
+                this.showApp();
+                // 页面刷新后自动加载备忘录数据
+                if (window.memoApp) {
+                    window.memoApp.loadMemos();
+                }
+            } else {
+                this.showAuth();
+            }
+        } catch (error) {
+            this.showAuth();
+        }
+    }
+
+    async handleLogin(e) {
+        e.preventDefault();
+        this.clearErrors();
+
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.currentUser = result.user;
+                this.showApp();
+                // 初始化备忘录应用
+                if (window.memoApp) {
+                    window.memoApp.loadMemos();
+                }
+            } else {
+                this.loginError.textContent = result.error || '登录失败';
+            }
+        } catch (error) {
+            this.loginError.textContent = '网络错误，请稍后重试';
+        }
+    }
+
+    async handleRegister(e) {
+        e.preventDefault();
+        this.clearErrors();
+
+        const username = document.getElementById('registerUsername').value;
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, email, password })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.currentUser = result.user;
+                this.showApp();
+                // 初始化备忘录应用
+                if (window.memoApp) {
+                    window.memoApp.loadMemos();
+                }
+            } else {
+                this.registerError.textContent = result.error || '注册失败';
+            }
+        } catch (error) {
+            this.registerError.textContent = '网络错误，请稍后重试';
+        }
+    }
+
+    async handleLogout() {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+            this.currentUser = null;
+            this.showAuth();
+            // 清理备忘录应用状态
+            if (window.memoApp) {
+                window.memoApp.clearState();
+            }
+        } catch (error) {
+            console.error('登出失败:', error);
+        }
+    }
+
+    showAuth() {
+        this.authContainer.style.display = 'flex';
+        this.appContainer.style.display = 'none';
+        this.clearForms();
+    }
+
+    showApp() {
+        this.authContainer.style.display = 'none';
+        this.appContainer.style.display = 'flex';
+        if (this.currentUser) {
+            this.userWelcome.textContent = `欢迎，${this.currentUser.username}`;
+        }
+    }
+
+    clearForms() {
+        this.loginForm.reset();
+        this.registerForm.reset();
+        this.clearErrors();
+    }
+}
+
+// 备忘录应用类
 class MemoApp {
     constructor() {
         this.currentMemo = null;
@@ -9,8 +187,6 @@ class MemoApp {
 
         this.initializeElements();
         this.bindEvents();
-        this.loadMemos();
-        this.createNewMemo();
     }
 
     initializeElements() {
@@ -33,15 +209,15 @@ class MemoApp {
     bindEvents() {
         // 搜索功能
         this.searchInput.addEventListener('input', () => this.searchMemos());
-        
+
         // 新建备忘录
         this.newMemoBtn.addEventListener('click', () => this.createNewMemo());
-        
+
         // 标题和内容输入
         this.memoTitle.addEventListener('input', () => this.handleInput());
         this.problemContent.addEventListener('input', () => this.handleInput());
         this.solutionContent.addEventListener('input', () => this.handleInput());
-        
+
         // 操作按钮
         this.copyBtn.addEventListener('click', () => this.copyContent());
         this.copyProblemBtn.addEventListener('click', () => this.copyProblemContent());
@@ -54,7 +230,7 @@ class MemoApp {
 
         // 自动保存防抖
         this.debounceSave = this.debounce(() => this.saveMemo(), 1000);
-        
+
         // 快捷键支持
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
     }
@@ -62,11 +238,32 @@ class MemoApp {
     async loadMemos() {
         try {
             const response = await fetch('/api/memos');
+            if (response.status === 401) {
+                // 认证失效，返回登录页面
+                window.authManager.showAuth();
+                return;
+            }
             this.memos = await response.json();
             this.filteredMemos = [...this.memos];
             this.renderMemoList();
         } catch (error) {
             console.error('加载备忘录失败:', error);
+            this.showToast('加载备忘录失败');
+        }
+    }
+
+    clearState() {
+        this.memos = [];
+        this.filteredMemos = [];
+        this.currentMemo = null;
+        this.selectedMemos.clear();
+        this.memoTitle.value = '';
+        this.problemContent.value = '';
+        this.solutionContent.value = '';
+        this.lastSaved.textContent = '';
+        this.updateCharCount();
+        if (this.memoList) {
+            this.memoList.innerHTML = '';
         }
     }
 
@@ -197,18 +394,28 @@ class MemoApp {
                 body: JSON.stringify(memoData)
             });
 
+            if (response.status === 401) {
+                // 认证失效，返回登录页面
+                window.authManager.showAuth();
+                return;
+            }
+
             const savedMemo = await response.json();
 
             if (!this.currentMemo) {
                 this.currentMemo = savedMemo;
                 this.memos.unshift(savedMemo);
-                this.filteredMemos.unshift(savedMemo);
+                this.filteredMemos = [...this.memos];
             } else {
                 Object.assign(this.currentMemo, savedMemo);
-                // 更新filteredMemos中对应的项目
-                const index = this.filteredMemos.findIndex(m => m.id === savedMemo.id);
-                if (index !== -1) {
-                    Object.assign(this.filteredMemos[index], savedMemo);
+                // 更新数组中对应的项目
+                const memoIndex = this.memos.findIndex(m => m.id === savedMemo.id);
+                if (memoIndex !== -1) {
+                    Object.assign(this.memos[memoIndex], savedMemo);
+                }
+                const filteredIndex = this.filteredMemos.findIndex(m => m.id === savedMemo.id);
+                if (filteredIndex !== -1) {
+                    Object.assign(this.filteredMemos[filteredIndex], savedMemo);
                 }
             }
 
@@ -217,6 +424,7 @@ class MemoApp {
 
         } catch (error) {
             console.error('保存备忘录失败:', error);
+            this.showToast('保存备忘录失败');
         }
     }
 
@@ -225,15 +433,22 @@ class MemoApp {
 
         if (confirm('确定要删除这个备忘录吗？')) {
             try {
-                await fetch(`/api/memos/${this.currentMemo.id}`, {
+                const response = await fetch(`/api/memos/${this.currentMemo.id}`, {
                     method: 'DELETE'
                 });
+
+                if (response.status === 401) {
+                    window.authManager.showAuth();
+                    return;
+                }
+
                 this.memos = this.memos.filter(m => m.id !== this.currentMemo.id);
                 this.filteredMemos = this.filteredMemos.filter(m => m.id !== this.currentMemo.id);
                 this.createNewMemo();
                 this.renderMemoList();
             } catch (error) {
                 console.error('删除备忘录失败:', error);
+                this.showToast('删除备忘录失败');
             }
         }
     }
@@ -304,19 +519,19 @@ class MemoApp {
             event.preventDefault();
             this.createNewMemo();
         }
-        
+
         // Ctrl/Cmd + S: 保存
         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
             event.preventDefault();
             this.saveMemo();
         }
-        
+
         // Ctrl/Cmd + F: 聚焦搜索框
         if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
             event.preventDefault();
             this.searchInput.focus();
         }
-        
+
         // Escape: 清除搜索或隐藏应用（由主进程处理）
         if (event.key === 'Escape') {
             if (this.searchInput.value) {
@@ -342,19 +557,33 @@ class MemoApp {
             z-index: 1000;
             font-size: 14px;
         `;
-        
+
         document.body.appendChild(toast);
-        
+
         setTimeout(() => {
             document.body.removeChild(toast);
         }, 2000);
     }
 
     formatTime(timestamp) {
-        const date = new Date(timestamp);
+        if (!timestamp) {
+            return '未知时间';
+        }
+
+        // 确保时间戳是数字格式
+        const numericTimestamp = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
+        if (isNaN(numericTimestamp)) {
+            return '未知时间';
+        }
+
+        const date = new Date(numericTimestamp);
+        if (isNaN(date.getTime())) {
+            return '未知时间';
+        }
+
         const now = new Date();
         const diff = now - date;
-        
+
         if (diff < 60000) { // 1分钟内
             return '刚刚';
         } else if (diff < 3600000) { // 1小时内
@@ -510,8 +739,6 @@ class MemoApp {
 
         if (confirm(`确定要删除选中的 ${selectedIds.length} 个备忘录吗？`)) {
             try {
-                console.log('开始批量删除，选中的ID:', selectedIds);
-
                 const response = await fetch('/api/memos', {
                     method: 'DELETE',
                     headers: {
@@ -520,7 +747,10 @@ class MemoApp {
                     body: JSON.stringify({ ids: selectedIds })
                 });
 
-                console.log('响应状态:', response.status);
+                if (response.status === 401) {
+                    window.authManager.showAuth();
+                    return;
+                }
 
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -530,7 +760,6 @@ class MemoApp {
                 }
 
                 const result = await response.json();
-                console.log('删除结果:', result);
 
                 if (result.success) {
                     // 从本地数组中删除
@@ -561,5 +790,6 @@ class MemoApp {
 
 // 应用初始化
 document.addEventListener('DOMContentLoaded', () => {
-    new MemoApp();
+    window.authManager = new AuthManager();
+    window.memoApp = new MemoApp();
 });

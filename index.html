@@ -7,7 +7,47 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="app-container">
+    <!-- 登录/注册界面 -->
+    <div id="authContainer" class="auth-container">
+        <div class="auth-box">
+            <div class="auth-header">
+                <h1>Memo Tool</h1>
+                <div class="auth-tabs">
+                    <button id="loginTab" class="auth-tab active">登录</button>
+                    <button id="registerTab" class="auth-tab">注册</button>
+                </div>
+            </div>
+
+            <!-- 登录表单 -->
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <input type="text" id="loginUsername" placeholder="用户名" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="loginPassword" placeholder="密码" required>
+                </div>
+                <button type="submit" class="auth-btn">登录</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+
+            <!-- 注册表单 -->
+            <form id="registerForm" class="auth-form" style="display: none;">
+                <div class="form-group">
+                    <input type="text" id="registerUsername" placeholder="用户名" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="registerEmail" placeholder="邮箱" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="registerPassword" placeholder="密码（至少6位）" required>
+                </div>
+                <button type="submit" class="auth-btn">注册</button>
+                <div id="registerError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="appContainer" class="app-container" style="display: none;">
         <!-- 顶部搜索栏 -->
         <div class="header">
             <div class="search-container">
@@ -17,6 +57,10 @@
                     placeholder="搜索备忘录..."
                     class="search-input"
                 >
+            </div>
+            <div class="user-info">
+                <span id="userWelcome">欢迎，用户</span>
+                <button id="logoutBtn" class="logout-btn">登出</button>
             </div>
         </div>
 
