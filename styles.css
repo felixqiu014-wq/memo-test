@@ -10,7 +10,7 @@ body {
     background: #f5f5f5;
     color: #333;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
 /* 加载状态样式 */
@@ -163,7 +163,8 @@ body {
 .app-container {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* 头部搜索栏 */
@@ -229,11 +230,13 @@ body {
 .main-content {
     display: flex;
     flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 57px);
 }
 
 /* 备忘录列表 */
 .memo-list {
-    width: 250px;
+    width: 300px;
     background: #fff;
     border-right: 1px solid #e0e0e0;
     display: flex;
@@ -348,6 +351,7 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 8px;
+    overflow: hidden;
 }
 
 .memo-item-checkbox {
@@ -398,6 +402,8 @@ body {
     display: flex;
     flex-direction: column;
     background: #fff;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .editor-header {
@@ -613,25 +619,25 @@ body {
     /* 移动端布局调整 */
 
     .app-container {
-        height: auto;
-        min-height: 100vh;
-        overflow: visible;
+        height: 100vh;
+        overflow: hidden;
     }
 
     .main-content {
         flex-direction: column;
-        height: auto;
-        overflow: visible;
+        height: calc(100vh - 57px);
+        overflow: hidden;
     }
 
     .memo-list {
         width: 100%;
-        height: auto;
-        max-height: 414px; /* 头部66px + 5个备忘录300px + 底部48px */
+        height: 50%; /* 在移动端占50%高度 */
         border-right: none;
         border-bottom: 1px solid #e0e0e0;
-        overflow: visible;
+        overflow: hidden; /* 隐藏memo-list的滚动，由其内部元素滚动 */
         flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     .memo-items {
@@ -639,10 +645,11 @@ body {
         overflow-y: auto;
     }
 
-    /* 编辑器容器也采用统一滚动 */
+    /* 编辑器容器 */
     .editor-container {
-        height: auto;
-        overflow: visible;
+        height: 50%; /* 在移动端占50%高度 */
+        overflow-y: auto;
+        overflow-x: hidden;
         flex-shrink: 0;
     }
 
