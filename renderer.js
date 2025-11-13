@@ -216,6 +216,7 @@ class MemoApp {
         this.problemContent = document.getElementById('problemContent');
         this.solutionContent = document.getElementById('solutionContent');
         this.copyBtn = document.getElementById('copyBtn');
+        this.addToKBBtn = document.getElementById('addToKBBtn');
         this.shareBtn = document.getElementById('shareBtn');
         this.copyProblemBtn = document.getElementById('copyProblemBtn');
         this.copySolutionBtn = document.getElementById('copySolutionBtn');
@@ -246,6 +247,7 @@ class MemoApp {
 
         // 操作按钮
         this.copyBtn.addEventListener('click', () => this.copyContent());
+        this.addToKBBtn.addEventListener('click', () => this.addToKnowledgeBase());
         this.shareBtn.addEventListener('click', () => this.showShareModal());
         this.copyProblemBtn.addEventListener('click', () => this.copyProblemContent());
         this.copySolutionBtn.addEventListener('click', () => this.copySolutionContent());
@@ -499,6 +501,14 @@ class MemoApp {
                 this.showToast('内容已复制到剪贴板');
             }
         }
+    }
+
+    addToKnowledgeBase() {
+        if (!this.currentMemo) {
+            this.showToast('请先选择要添加的备忘录');
+            return;
+        }
+        window.knowledgeBaseManager.openAddMemoModal(this.currentMemo.id);
     }
 
     async copyProblemContent() {
@@ -1063,15 +1073,325 @@ async function shareMemo() {
     }
 }
 
+// 知识库管理器类
+class KnowledgeBaseManager {
+    constructor() {
+        this.knowledgeBases = [];
+        this.currentEditingId = null;
+        this.initializeElements();
+        this.bindEvents();
+    }
+
+    initializeElements() {
+        this.knowledgeBaseBtn = document.getElementById('knowledgeBaseBtn');
+        this.knowledgeBaseView = document.getElementById('knowledgeBaseView');
+        this.appContainer = document.getElementById('appContainer');
+        this.backToMemosBtn = document.getElementById('backToMemosBtn');
+        this.createKBModalBtn = document.getElementById('createKBModalBtn');
+        this.knowledgeBaseList = document.getElementById('knowledgeBaseList');
+        this.knowledgeBaseModal = document.getElementById('knowledgeBaseModal');
+        this.knowledgeBaseModalTitle = document.getElementById('knowledgeBaseModalTitle');
+        this.kbNameInput = document.getElementById('kbNameInput');
+        this.kbDescInput = document.getElementById('kbDescInput');
+        this.kbModalError = document.getElementById('kbModalError');
+        this.addMemoToKBModal = document.getElementById('addMemoToKBModal');
+        this.kbSelect = document.getElementById('kbSelect');
+        this.addMemoKBError = document.getElementById('addMemoKBError');
+        this.currentMemoId = null;
+    }
+
+    bindEvents() {
+        this.knowledgeBaseBtn.addEventListener('click', () => this.showKnowledgeBaseView());
+        this.backToMemosBtn.addEventListener('click', () => this.showMemoView());
+        this.createKBModalBtn.addEventListener('click', () => this.openCreateModal());
+    }
+
+    showKnowledgeBaseView() {
+        this.appContainer.style.display = 'none';
+        this.knowledgeBaseView.style.display = 'block';
+        this.loadKnowledgeBases();
+    }
+
+    showMemoView() {
+        this.knowledgeBaseView.style.display = 'none';
+        this.appContainer.style.display = 'block';
+    }
+
+    async loadKnowledgeBases() {
+        try {
+            const response = await fetch('/api/knowledge-bases');
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+            const knowledgeBases = await response.json();
+            this.knowledgeBases = knowledgeBases;
+            this.renderKnowledgeBases();
+        } catch (error) {
+            console.error('加载知识库失败:', error);
+            window.memoApp.showToast('加载知识库失败');
+        }
+    }
+
+    renderKnowledgeBases() {
+        if (this.knowledgeBases.length === 0) {
+            this.knowledgeBaseList.innerHTML = '<div class="empty-kb-message">暂无知识库，点击"新建知识库"创建</div>';
+            return;
+        }
+
+        this.knowledgeBaseList.innerHTML = this.knowledgeBases.map(kb => `
+            <div class="knowledge-base-item" data-id="${kb.id}">
+                <div class="kb-header">
+                    <h3 class="kb-name">${kb.name}</h3>
+                    <div class="kb-actions">
+                        <button class="kb-action-btn" onclick="knowledgeBaseManager.editKnowledgeBase('${kb.id}')" title="编辑">✏️</button>
+                        <button class="kb-action-btn" onclick="knowledgeBaseManager.deleteKnowledgeBase('${kb.id}')" title="删除">🗑️</button>
+                    </div>
+                </div>
+                ${kb.description ? `<p class="kb-description">${kb.description}</p>` : ''}
+                <div class="kb-meta">
+                    <span class="kb-date">创建于: ${new Date(Number(kb.createdAt)).toLocaleDateString()}</span>
+                    <button class="kb-view-btn" onclick="knowledgeBaseManager.viewKnowledgeBase('${kb.id}')">查看内容</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    openCreateModal() {
+        this.currentEditingId = null;
+        this.knowledgeBaseModalTitle.textContent = '新建知识库';
+        this.kbNameInput.value = '';
+        this.kbDescInput.value = '';
+        this.kbModalError.textContent = '';
+        this.knowledgeBaseModal.style.display = 'flex';
+    }
+
+    editKnowledgeBase(id) {
+        const kb = this.knowledgeBases.find(k => k.id === id);
+        if (!kb) return;
+
+        this.currentEditingId = id;
+        this.knowledgeBaseModalTitle.textContent = '编辑知识库';
+        this.kbNameInput.value = kb.name;
+        this.kbDescInput.value = kb.description || '';
+        this.kbModalError.textContent = '';
+        this.knowledgeBaseModal.style.display = 'flex';
+    }
+
+    closeModal() {
+        this.knowledgeBaseModal.style.display = 'none';
+        this.currentEditingId = null;
+    }
+
+    async saveKnowledgeBase() {
+        const name = this.kbNameInput.value.trim();
+        const description = this.kbDescInput.value.trim();
+
+        if (!name) {
+            this.kbModalError.textContent = '知识库名称不能为空';
+            return;
+        }
+
+        try {
+            const url = this.currentEditingId
+                ? `/api/knowledge-bases/${this.currentEditingId}`
+                : '/api/knowledge-bases';
+
+            const method = this.currentEditingId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description })
+            });
+
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+
+            if (response.ok) {
+                window.memoApp.showToast(this.currentEditingId ? '知识库已更新' : '知识库已创建');
+                this.closeModal();
+                this.loadKnowledgeBases();
+            } else {
+                const result = await response.json();
+                this.kbModalError.textContent = result.error || '操作失败';
+            }
+        } catch (error) {
+            console.error('保存知识库失败:', error);
+            this.kbModalError.textContent = '保存失败，请稍后重试';
+        }
+    }
+
+    async deleteKnowledgeBase(id) {
+        if (!confirm('确定要删除这个知识库吗？知识库中的备忘录不会被删除。')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/knowledge-bases/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+
+            if (response.ok) {
+                window.memoApp.showToast('知识库已删除');
+                this.loadKnowledgeBases();
+            } else {
+                window.memoApp.showToast('删除知识库失败');
+            }
+        } catch (error) {
+            console.error('删除知识库失败:', error);
+            window.memoApp.showToast('删除知识库失败');
+        }
+    }
+
+    async viewKnowledgeBase(id) {
+        try {
+            const response = await fetch(`/api/knowledge-bases/${id}/memos`);
+
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+
+            if (response.ok) {
+                const memos = await response.json();
+                this.showKnowledgeBaseMemos(memos);
+            }
+        } catch (error) {
+            console.error('获取知识库备忘录失败:', error);
+            window.memoApp.showToast('获取知识库备忘录失败');
+        }
+    }
+
+    showKnowledgeBaseMemos(memos) {
+        if (memos.length === 0) {
+            this.knowledgeBaseList.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <button class="back-btn" onclick="knowledgeBaseManager.loadKnowledgeBases()">← 返回知识库列表</button>
+                </div>
+                <div class="empty-kb-message">此知识库暂无备忘录</div>
+            `;
+            return;
+        }
+
+        this.knowledgeBaseList.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <button class="back-btn" onclick="knowledgeBaseManager.loadKnowledgeBases()">← 返回知识库列表</button>
+            </div>
+            <div class="kb-memos-list">
+                ${memos.map(memo => `
+                    <div class="memo-item" data-id="${memo.id}">
+                        <div class="memo-item-content">
+                            <div class="memo-item-title">${memo.title || '无标题'}</div>
+                            <div class="memo-item-preview">${memo.content.substring(0, 100)}${memo.content.length > 100 ? '...' : ''}</div>
+                        </div>
+                        <div class="memo-item-footer">
+                            <span class="memo-item-date">${new Date(Number(memo.updatedAt)).toLocaleDateString()}</span>
+                            <button class="memo-item-action" onclick="knowledgeBaseManager.removeMemoFromKB('${memo.id}')">移除</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    async removeMemoFromKB(memoId) {
+        if (!confirm('确定要从知识库中移除此备忘录吗？')) {
+            return;
+        }
+
+        alert('此功能需要当前知识库ID，请在知识库详情页操作');
+    }
+
+    openAddMemoModal(memoId) {
+        this.currentMemoId = memoId;
+        this.addMemoKBError.textContent = '';
+        this.loadKBSelectOptions();
+        this.addMemoToKBModal.style.display = 'flex';
+    }
+
+    closeAddMemoModal() {
+        this.addMemoToKBModal.style.display = 'none';
+        this.currentMemoId = null;
+        this.kbSelect.innerHTML = '<option value="">-- 选择知识库 --</option>';
+    }
+
+    async loadKBSelectOptions() {
+        try {
+            const response = await fetch('/api/knowledge-bases');
+            if (response.ok) {
+                const knowledgeBases = await response.json();
+                knowledgeBases.forEach(kb => {
+                    const option = document.createElement('option');
+                    option.value = kb.id;
+                    option.textContent = kb.name;
+                    this.kbSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('加载知识库选项失败:', error);
+        }
+    }
+
+    async addMemoToKB() {
+        const knowledgeBaseId = this.kbSelect.value;
+
+        if (!knowledgeBaseId) {
+            this.addMemoKBError.textContent = '请选择知识库';
+            return;
+        }
+
+        if (!this.currentMemoId) {
+            this.addMemoKBError.textContent = '无效的备忘录';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/memos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ memoId: this.currentMemoId })
+            });
+
+            if (response.status === 401) {
+                window.authManager.showAuth();
+                return;
+            }
+
+            if (response.ok) {
+                window.memoApp.showToast('备忘录已添加到知识库');
+                this.closeAddMemoModal();
+            } else {
+                const result = await response.json();
+                this.addMemoKBError.textContent = result.error || '添加失败';
+            }
+        } catch (error) {
+            console.error('添加备忘录到知识库失败:', error);
+            this.addMemoKBError.textContent = '添加失败，请稍后重试';
+        }
+    }
+}
+
 // 应用初始化
 document.addEventListener('DOMContentLoaded', () => {
     window.authManager = new AuthManager();
     window.memoApp = new MemoApp();
 
-    // 确保用户已登录后再初始化分享功能
+    // 在用户登录后初始化应用
     const originalShowApp = window.authManager.showApp;
     window.authManager.showApp = function() {
         originalShowApp.call(this);
-        window.memoApp.init();
+        if (window.memoApp) {
+            window.memoApp.init();
+        }
+        // 初始化知识库管理器
+        window.knowledgeBaseManager = new KnowledgeBaseManager();
     };
 });

@@ -316,6 +316,135 @@ app.get('/api/memos/:id/updates', auth.authenticateToken, async (req, res) => {
     }
 });
 
+// 知识库 API 路由
+
+// 获取用户的所有知识库
+app.get('/api/knowledge-bases', auth.authenticateToken, async (req, res) => {
+    try {
+        const knowledgeBases = await db.getKnowledgeBases(req.user.userId);
+        res.json(knowledgeBases);
+    } catch (error) {
+        console.error('获取知识库失败:', error);
+        res.status(500).json({ error: '获取知识库失败' });
+    }
+});
+
+// 创建知识库
+app.post('/api/knowledge-bases', auth.authenticateToken, async (req, res) => {
+    try {
+        const { name, description } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: '知识库名称不能为空' });
+        }
+
+        const knowledgeBase = await db.createKnowledgeBase(req.user.userId, name, description || '');
+        res.json(knowledgeBase);
+    } catch (error) {
+        console.error('创建知识库失败:', error);
+        res.status(500).json({ error: '创建知识库失败' });
+    }
+});
+
+// 更新知识库（重命名）
+app.put('/api/knowledge-bases/:id', auth.authenticateToken, async (req, res) => {
+    try {
+        const { name, description } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ error: '知识库名称不能为空' });
+        }
+
+        const updatedKnowledgeBase = await db.updateKnowledgeBase(req.user.userId, req.params.id, name, description || '');
+
+        if (!updatedKnowledgeBase) {
+            return res.status(404).json({ error: '知识库不存在或无权限' });
+        }
+
+        res.json(updatedKnowledgeBase);
+    } catch (error) {
+        console.error('更新知识库失败:', error);
+        res.status(500).json({ error: '更新知识库失败' });
+    }
+});
+
+// 删除知识库
+app.delete('/api/knowledge-bases/:id', auth.authenticateToken, async (req, res) => {
+    try {
+        const success = await db.deleteKnowledgeBase(req.user.userId, req.params.id);
+
+        if (!success) {
+            return res.status(404).json({ error: '知识库不存在或无权限' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('删除知识库失败:', error);
+        res.status(500).json({ error: '删除知识库失败' });
+    }
+});
+
+// 获取知识库中的所有备忘录
+app.get('/api/knowledge-bases/:id/memos', auth.authenticateToken, async (req, res) => {
+    try {
+        const memos = await db.getKnowledgeBaseMemos(req.user.userId, req.params.id);
+        res.json(memos);
+    } catch (error) {
+        console.error('获取知识库备忘录失败:', error);
+        res.status(500).json({ error: '获取知识库备忘录失败' });
+    }
+});
+
+// 将备忘录添加到知识库
+app.post('/api/knowledge-bases/:id/memos', auth.authenticateToken, async (req, res) => {
+    try {
+        const { memoId } = req.body;
+
+        if (!memoId) {
+            return res.status(400).json({ error: 'memoId不能为空' });
+        }
+
+        // 检查用户是否有权限访问此备忘录
+        const canAccess = await db.canAccessMemo(req.user.userId, memoId);
+        if (!canAccess) {
+            return res.status(403).json({ error: '无权限访问此备忘录' });
+        }
+
+        const result = await db.addMemoToKnowledgeBase(req.user.userId, req.params.id, memoId);
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('添加备忘录到知识库失败:', error);
+        res.status(500).json({ error: '添加备忘录到知识库失败' });
+    }
+});
+
+// 从知识库移除备忘录
+app.delete('/api/knowledge-bases/:id/memos/:memoId', auth.authenticateToken, async (req, res) => {
+    try {
+        const success = await db.removeMemoFromKnowledgeBase(req.user.userId, req.params.id, req.params.memoId);
+
+        if (!success) {
+            return res.status(404).json({ error: '备忘录不在知识库中' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('从知识库移除备忘录失败:', error);
+        res.status(500).json({ error: '从知识库移除备忘录失败' });
+    }
+});
+
+// 获取备忘录所属的知识库
+app.get('/api/memos/:id/knowledge-bases', auth.authenticateToken, async (req, res) => {
+    try {
+        const knowledgeBases = await db.getMemoKnowledgeBases(req.user.userId, req.params.id);
+        res.json(knowledgeBases);
+    } catch (error) {
+        console.error('获取备忘录的知识库失败:', error);
+        res.status(500).json({ error: '获取备忘录的知识库失败' });
+    }
+});
+
 
 // 主页路由
 app.get('/', (req, res) => {

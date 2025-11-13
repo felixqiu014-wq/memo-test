@@ -77,6 +77,43 @@ async function initDatabase() {
             )
         `);
 
+        // 创建知识库表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS knowledge_bases (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                description TEXT DEFAULT '',
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL
+            )
+        `);
+
+        // 创建备忘录和知识库的关联表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS memo_knowledge_base (
+                id SERIAL PRIMARY KEY,
+                knowledge_base_id INTEGER NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+                memo_id INTEGER NOT NULL REFERENCES memos(id) ON DELETE CASCADE,
+                added_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL,
+                UNIQUE(knowledge_base_id, memo_id)
+            )
+        `);
+
+        // 检查并添加 knowledge_bases 表可能缺失的列
+        const kbColumns = await client.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'knowledge_bases' AND column_name = 'description'
+        `);
+
+        if (kbColumns.rows.length === 0) {
+            // 添加 description 列
+            await client.query(`ALTER TABLE knowledge_bases ADD COLUMN description TEXT DEFAULT ''`);
+            console.log('已为 knowledge_bases 表添加 description 列');
+        }
+
         // 检查是否需要添加 user_id 列到现有的 memos 表
         const result = await client.query(`
             SELECT column_name
@@ -116,6 +153,167 @@ async function initDatabase() {
     } catch (error) {
         console.error('数据库初始化失败:', error);
         throw error;
+    } finally {
+        client.release();
+    }
+}
+
+// 知识库相关数据库操作
+
+// 获取用户的所有知识库
+async function getKnowledgeBases(userId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT * FROM knowledge_bases WHERE user_id = $1 ORDER BY updated_at DESC',
+            [userId]
+        );
+        return result.rows.map(row => ({
+            id: row.id.toString(),
+            name: row.name,
+            description: row.description,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        }));
+    } finally {
+        client.release();
+    }
+}
+
+// 创建知识库
+async function createKnowledgeBase(userId, name, description = '') {
+    const client = await pool.connect();
+    try {
+        const now = Date.now();
+        const result = await client.query(
+            'INSERT INTO knowledge_bases (user_id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [userId, name, description, now, now]
+        );
+        const row = result.rows[0];
+        return {
+            id: row.id.toString(),
+            name: row.name,
+            description: row.description,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        };
+    } finally {
+        client.release();
+    }
+}
+
+// 更新知识库
+async function updateKnowledgeBase(userId, id, name, description = '') {
+    const client = await pool.connect();
+    try {
+        const now = Date.now();
+        const result = await client.query(
+            'UPDATE knowledge_bases SET name = $1, description = $2, updated_at = $3 WHERE id = $4 AND user_id = $5 RETURNING *',
+            [name, description, now, parseInt(id), userId]
+        );
+        if (result.rows.length === 0) {
+            return null;
+        }
+        const row = result.rows[0];
+        return {
+            id: row.id.toString(),
+            name: row.name,
+            description: row.description,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        };
+    } finally {
+        client.release();
+    }
+}
+
+// 删除知识库
+async function deleteKnowledgeBase(userId, id) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'DELETE FROM knowledge_bases WHERE id = $1 AND user_id = $2',
+            [parseInt(id), userId]
+        );
+        return result.rowCount > 0;
+    } finally {
+        client.release();
+    }
+}
+
+// 将备忘录添加到知识库
+async function addMemoToKnowledgeBase(userId, knowledgeBaseId, memoId) {
+    const client = await pool.connect();
+    try {
+        const now = Date.now();
+        const result = await client.query(
+            'INSERT INTO memo_knowledge_base (knowledge_base_id, memo_id, added_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING *',
+            [parseInt(knowledgeBaseId), parseInt(memoId), now, now]
+        );
+        return result.rows[0];
+    } finally {
+        client.release();
+    }
+}
+
+// 从知识库移除备忘录
+async function removeMemoFromKnowledgeBase(userId, knowledgeBaseId, memoId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'DELETE FROM memo_knowledge_base WHERE knowledge_base_id = $1 AND memo_id = $2',
+            [parseInt(knowledgeBaseId), parseInt(memoId)]
+        );
+        return result.rowCount > 0;
+    } finally {
+        client.release();
+    }
+}
+
+// 获取知识库中的所有备忘录
+async function getKnowledgeBaseMemos(userId, knowledgeBaseId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(`
+            SELECT m.*, mkb.added_at as added_to_kb_at
+            FROM memo_knowledge_base mkb
+            JOIN memos m ON mkb.memo_id = m.id
+            JOIN knowledge_bases kb ON mkb.knowledge_base_id = kb.id
+            WHERE kb.id = $1 AND kb.user_id = $2
+            ORDER BY mkb.added_at DESC
+        `, [parseInt(knowledgeBaseId), userId]);
+
+        return result.rows.map(row => ({
+            id: row.id.toString(),
+            title: row.title,
+            content: row.content,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            addedToKBAt: row.added_to_kb_at
+        }));
+    } finally {
+        client.release();
+    }
+}
+
+// 获取备忘录所属的知识库
+async function getMemoKnowledgeBases(userId, memoId) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(`
+            SELECT kb.*, mkb.added_at
+            FROM memo_knowledge_base mkb
+            JOIN knowledge_bases kb ON mkb.knowledge_base_id = kb.id
+            JOIN memos m ON mkb.memo_id = m.id
+            WHERE m.id = $1 AND (kb.user_id = $2 OR m.user_id = $2)
+        `, [parseInt(memoId), userId]);
+
+        return result.rows.map(row => ({
+            id: row.id.toString(),
+            name: row.name,
+            description: row.description,
+            addedAt: row.added_at
+        }));
     } finally {
         client.release();
     }
@@ -525,5 +723,13 @@ module.exports = {
     createNotification,
     getUserNotifications,
     markNotificationAsRead,
-    getMemoUpdates
+    getMemoUpdates,
+    getKnowledgeBases,
+    createKnowledgeBase,
+    updateKnowledgeBase,
+    deleteKnowledgeBase,
+    addMemoToKnowledgeBase,
+    removeMemoFromKnowledgeBase,
+    getKnowledgeBaseMemos,
+    getMemoKnowledgeBases
 };
